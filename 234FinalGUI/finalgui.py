@@ -7,7 +7,7 @@ from login import extrauser
 import numpy as np
 import cv2 as cv
 from PIL import Image, ImageTk
-path = 'My+Movie+4.mov'
+path = r"C:\Users\Ethan\Desktop\newWork\mediumVideoTest\My+Movie+4.mov"
 video = cv.VideoCapture(path)
 
 
@@ -82,7 +82,7 @@ region_top_left = (0, 250)  # Example values for top-left coordinate
 region_bottom_right = (640, 360)  # Example values for bottom-right coordinate
 # masked line detection stuff ----------------------------------------------------
 
-video_path = 'My+Movie+4.mov'
+video_path = r"C:\Users\Ethan\Desktop\newWork\mediumVideoTest\My+Movie+4.mov"
 cap = cv.VideoCapture(video_path)
 
 
@@ -135,6 +135,9 @@ def update_video_feed():
                 right_x2 = int((region_bottom_right[1] - right_intercept) / (vy / vx))
                 cv.line(frame, (right_x1, region_top_left[1]), (right_x2, region_bottom_right[1]), (0, 0, 255),
                         thickness=2)
+        arrow_start = (30, 30)
+        arrow_end = (30, 10)
+        cv.arrowedLine(frame, arrow_start, arrow_end, (255, 0, 0), thickness=2)
 
         opencv_image = cv.cvtColor(frame, cv.COLOR_BGR2RGBA)
         pil_image = Image.fromarray(opencv_image)
