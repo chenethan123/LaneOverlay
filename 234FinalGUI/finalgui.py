@@ -77,10 +77,10 @@ left.grid(column=0, row=0, pady=5, padx=10, sticky="n")
 video_label = tk.Label(left)
 video_label.pack()
 
-# masked line detection stuff ----------------------------------------------------
+# masked line detection 
 region_top_left = (0, 250)  # Example values for top-left coordinate
 region_bottom_right = (640, 360)  # Example values for bottom-right coordinate
-# masked line detection stuff ----------------------------------------------------
+
 
 video_path = 'My+Movie+4.mov'
 cap = cv.VideoCapture(video_path)
