@@ -7,13 +7,15 @@ from login import extrauser
 import numpy as np
 import cv2 as cv
 from PIL import Image, ImageTk
-video = cv.VideoCapture(0)
+path = 'My+Movie+4.mov'
+video = cv.VideoCapture(path)
 
 
 video.set(cv.CAP_PROP_FRAME_WIDTH, 300)
 video.set(cv.CAP_PROP_FRAME_HEIGHT, 300)
 
 from datetime import datetime
+
 
 fen = tk.Tk()
 
@@ -59,70 +61,6 @@ def logout():
     update_log_text()
 
 
-def do_canny(frame):
-    gray = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
-    blur = cv.GaussianBlur(gray, (5, 5), 0)
-    canny = cv.Canny(blur, 50, 150)
-    return canny
-
-def do_segment(frame):
-    height = frame.shape[0]
-    polygons = np.array([[(0, height), (800, height), (380, 290)]])
-    mask = np.zeros_like(frame)
-    cv.fillPoly(mask, polygons, 255)
-    segment = cv.bitwise_and(frame, mask)
-    return segment
-
-def calculate_lines(frame, lines):
-    left = []
-    right = []
-    
-    for line in lines:
-        x1, y1, x2, y2 = line.reshape(4)
-        parameters = np.polyfit((x1, x2), (y1, y2), 1)
-        slope = parameters[0]
-        y_intercept = parameters[1]
-        
-        if slope < 0:
-            left.append((slope, y_intercept))
-        else:
-            right.append((slope, y_intercept))
-    
-    left_avg = np.average(left, axis=0)
-    right_avg = np.average(right, axis=0)
-    
-    left_line = calculate_coordinates(frame, left_avg)
-    right_line = calculate_coordinates(frame, right_avg)
-    
-    return np.array([left_line, right_line])
-
-def calculate_coordinates(frame, parameters):
-    slope, intercept = parameters
-    y1 = frame.shape[0]
-    y2 = int(y1 - 150)
-    x1 = int((y1 - intercept) / slope)
-    x2 = int((y2 - intercept) / slope)
-    return np.array([x1, y1, x2, y2])
-
-def visualize_lines(frame, lines):
-    lines_visualize = np.zeros_like(frame)
-    
-    if lines is not None and len(lines) == 2:
-        left_line = lines[0]
-        right_line = lines[1]
-
-        x1_left, y1_left, x2_left, y2_left = left_line
-        x1_right, y1_right, x2_right, y2_right = right_line
-
-        cv.line(lines_visualize, (x1_left, y1_left), (x2_left, y2_left), (0, 255, 0), 5)
-        cv.line(lines_visualize, (x1_right, y1_right), (x2_right, y2_right), (0, 255, 0), 5)
-
-        mid_x = (x1_left + x1_right) // 2
-        mid_y = (y1_left + y1_right) // 2
-        cv.line(lines_visualize, (mid_x, mid_y), (mid_x, mid_y), (0, 0, 255), 5)
-
-    return lines_visualize
-
 
 
 # Create a label widget to display the video feed
@@ -139,44 +77,77 @@ left.grid(column=0, row=0, pady=5, padx=10, sticky="n")
 video_label = tk.Label(left)
 video_label.pack()
 
-# The video feed is read in as a VideoCapture object
-video_path = r"C:\Users\Ethan\Sprint6\234FinalGUI\input.mp4"
+# masked line detection stuff ----------------------------------------------------
+region_top_left = (0, 250)  # Example values for top-left coordinate
+region_bottom_right = (640, 360)  # Example values for bottom-right coordinate
+# masked line detection stuff ----------------------------------------------------
+
+video_path = 'My+Movie+4.mov'
 cap = cv.VideoCapture(video_path)
 
 
 def update_video_feed():
     ret, frame = cap.read()
     if ret:
-        canny = do_canny(frame)
-        segment = do_segment(canny)
-        hough = cv.HoughLinesP(segment, 2, np.pi / 180, 100, np.array([]), minLineLength=100, maxLineGap=50)
+        frame = cv.resize(frame, (640, 360))
+        region_of_interest = frame[region_top_left[1]:region_bottom_right[1], region_top_left[0]:region_bottom_right[0]]
+        gray_roi = cv.cvtColor(region_of_interest, cv.COLOR_BGR2GRAY)
+        roi_edges = cv.Canny(gray_roi, 50, 150)
+        lines = cv.HoughLinesP(roi_edges, 1, np.pi / 180, 50, minLineLength=30, maxLineGap=30)
 
-        if hough is not None and len(hough) > 0:
-            # Averages multiple detected lines from hough into one line for left border of lane and one line for right border of lane
-            lines = calculate_lines(frame, hough)
-            # Visualizes the lines
-            lines_visualize = visualize_lines(frame, lines)
-            # Overlays lines on frame by taking their weighted sums and adding an arbitrary scalar value of 1 as the gamma argument
-            output = cv.addWeighted(frame, 0.9, lines_visualize, 1, 1)
-            # Convert OpenCV image to PIL format
-            opencv_image = cv.cvtColor(output, cv.COLOR_BGR2RGBA)
-            pil_image = Image.fromarray(opencv_image)
-            # Convert PIL image to PhotoImage format
-            photo_image = ImageTk.PhotoImage(image=pil_image)
-            # Update the label widget with the new image
-            video_label.photo_image = photo_image
-            video_label.configure(image=photo_image)
-        else:
-            print("No lines detected. Showing Canny edge detection only.")
+        if lines is not None:
+            left_points = []
+            right_points = []
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                x1 += region_top_left[0]
+                y1 += region_top_left[1]
+                x2 += region_top_left[0]
+                y2 += region_top_left[1]
 
-        # Schedule the next update after 10 milliseconds
-        fen.after(10, update_video_feed)
+                cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), thickness=2)
+
+                slope = (y2 - y1) / (x2 - x1) if (x2 - x1) != 0 else float('inf')
+                if slope < 0:  # Left line
+                    left_points.append((x1, y1))
+                    left_points.append((x2, y2))
+                elif slope > 0:  # Right line
+                    right_points.append((x1, y1))
+                    right_points.append((x2, y2))
+
+            left_x1 = left_x2 = 0
+            right_x1 = right_x2 = 0
+
+            if left_points:
+                left_line = cv.fitLine(np.array(left_points), cv.DIST_L2, 0, 0.01, 0.01)
+                vx, vy, x, y = left_line[0], left_line[1], left_line[2], left_line[3]
+                left_intercept = y - vy / vx * x
+                left_x1 = int((region_top_left[1] - left_intercept) / (vy / vx))
+                left_x2 = int((region_bottom_right[1] - left_intercept) / (vy / vx))
+                cv.line(frame, (left_x1, region_top_left[1]), (left_x2, region_bottom_right[1]), (0, 0, 255),
+                        thickness=2)
+
+            if right_points:
+                right_line = cv.fitLine(np.array(right_points), cv.DIST_L2, 0, 0.01, 0.01)
+                vx, vy, x, y = right_line[0], right_line[1], right_line[2], right_line[3]
+                right_intercept = y - vy / vx * x
+                right_x1 = int((region_top_left[1] - right_intercept) / (vy / vx))
+                right_x2 = int((region_bottom_right[1] - right_intercept) / (vy / vx))
+                cv.line(frame, (right_x1, region_top_left[1]), (right_x2, region_bottom_right[1]), (0, 0, 255),
+                        thickness=2)
+
+        opencv_image = cv.cvtColor(frame, cv.COLOR_BGR2RGBA)
+        pil_image = Image.fromarray(opencv_image)
+        photo_image = ImageTk.PhotoImage(image=pil_image)
+
+        video_label.photo_image = photo_image
+        video_label.configure(image=photo_image)
+    else:
+        print("Failed to retrieve frame from the video source.")
+
+    fen.after(10, update_video_feed)
 
 update_video_feed()
-
-    # Frames are read by intervals of 10 milliseconds. The program breaks out of the while
-
-# line
 sty = Style(fen)
 sty.configure("TSeparator", background="black")
 
@@ -236,7 +207,6 @@ open_cam()
 bright = tk.Frame(fen, bg="grey", width=200, height=200)
 bright.pack_propagate(False)
 tk.Label(bright, text="Log", fg="white", bg="black").pack()
-
 log_text = tk.Text(bright, fg="white", bg="black", height=10, width=30, wrap=tk.WORD, state=tk.DISABLED)
 log_text.grid(column=0, row=2, pady=22, padx=10, sticky="n", rowspan=2)
 
