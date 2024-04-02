@@ -7,7 +7,7 @@ from login import extrauser
 import numpy as np
 import cv2 as cv
 from PIL import Image, ImageTk
-path = r"C:\Users\Ethan\Desktop\newWork\mediumVideoTest\My+Movie+4.mov"
+path = 'My+Movie+4.mov'
 video = cv.VideoCapture(path)
 
 
@@ -82,7 +82,7 @@ region_top_left = (0, 250)  # Example values for top-left coordinate
 region_bottom_right = (640, 360)  # Example values for bottom-right coordinate
 # masked line detection stuff ----------------------------------------------------
 
-video_path = r"C:\Users\Ethan\Desktop\newWork\mediumVideoTest\My+Movie+4.mov"
+video_path = 'My+Movie+4.mov'
 cap = cv.VideoCapture(video_path)
 
 
